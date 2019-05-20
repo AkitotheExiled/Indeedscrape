@@ -1,7 +1,7 @@
 # Indeedscraper
 
 ## Prereqs
->- numpy==1.16.2
+- numpy==1.16.2
 - pandas==0.24.2
 - python-dateutil==2.8.0
 - pytz==2019.1
