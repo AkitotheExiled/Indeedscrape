@@ -1,3 +1,12 @@
+# Use BS4 to parse html for the page and extract data for csv
+# Need to delete additional column headers when appending to already existing csv
+# Fix issue where appending additional jobs, there is an extra row after every appended job.
+# Open each link and extract information pertaining to the job for the csv
+# Develop function to check if file exists before writing the data to it, if exists
+# then append the data that is not already in the csv.
+# Allow script to go through the pages if they exist to scrape further than the first page
+# Create GUI and EXE for script
+
 import time
 import pandas as pd
 
@@ -11,6 +20,8 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
+import re
+import os, sys
 
 
 class Indeed:
@@ -27,7 +38,9 @@ class Indeed:
         self.wait = WebDriverWait(self.driver, self.wait_time)
         self.soup = None
         self.filename = 'indeedJobs.csv'
-
+        self.links = []
+        self.sources = []
+        self.soups = []
     def element_detect(self, element1, element2):
         ''' This method is to be used when you know the name of an input and its ID changes on a different page but that input function remains the same.'''
         try:
@@ -98,6 +111,13 @@ class Indeed:
         else:
             return False
 
+    def reg_default(self, regex, strg):
+        compiled = re.compile(regex).search(strg)
+        if compiled == None:
+            return ""
+        else:
+            return compiled.group()
+
     def scrape_page(self):
         WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class,'jobsearch-SerpJobCard unifiedRow row result clickcard')]")))
         try:
@@ -116,29 +136,44 @@ class Indeed:
             self.driver.switch_to.default_content()
             pass
         else:
-            self.soup = self.driver.page_source
             for title in containers:
                 job_name = title.find_element_by_class_name('title').text
                 job_link = title.find_element_by_class_name('title').find_element_by_tag_name('a').get_attribute(
                     'href')
                 company = title.find_element_by_class_name('company').text
                 location = title.find_element_by_class_name('location').text
+                self.links.append(job_link)
                 self.scraped_data.append(
                     {"Job": job_name, "Job Link": job_link, "Company": company,
-                     "Location": location}
+                     "Location": location, "Desc": "", "Salary": ""}
                 )
+            for source in self.links:
+                self.driver.get(source)
+                self.scraped_data[0]['Job Link'] = self.driver.find_element_by_xpath("//div[contains(@class, 'icl-u-xs-hide icl-u-lg-block icl-u-lg-textCenter')]").find_element_by_tag_name('a').get_attribute('href')
+                self.scraped_data[0]['Desc'] = self.driver.find_element_by_xpath("//div[contains(@class, 'jobsearch-jobDescriptionText')]").text
+                self.scraped_data[0]['Salary'] = self.reg_default(r'[$]\d[\d|\W]{1,3}(\d*)', self.driver.find_element_by_xpath("//div[contains(@class, 'jobsearch-jobDescriptionText')]").text)
+                self.sources.append(self.driver.page_source)
+            for source in self.sources:
+                self.soups.append(BeautifulSoup(source, 'html.parser'))
+            for soup in self.soups:
+                print(soup.title, soup.find_all('a'), soup.title.a, soup.body.string)
+
 
         #else:
          ##  'The element you are looking for is not available.  Pre-Check is returning false. Please confirm your element is visible.')
-        print(self.driver.current_url)
-        print(BeautifulSoup(self.driver.page_source, 'html.parser').prettify())
+        #print(self.driver.current_url)
+        #print(BeautifulSoup(self.driver.page_source, 'html.parser').prettify())
 
     def save_jobs(self):
-
         df = pd.DataFrame(self.scraped_data)
-        print("Scraped jobs saved to " + self.filename + '.')
-        df.to_csv(self.filename)
-        self.driver.quit()
+        if self.filename in os.listdir(os.path.dirname(sys.argv[0])):
+            with open(self.filename, 'a') as f:
+                df.to_csv(f)
+            print("Scraped jobs appended to " + self.filename + '.')
+        else:
+            print("Scraped jobs saved to generated file " + self.filename + '.')
+            df.to_csv(self.filename)
+            self.driver.quit()
 
     def close_prog(self):
 
