@@ -1,5 +1,5 @@
 # Indeedscraper
-
+> This branch is experimental/wip and may have bugs/issues that are not yet ironed out.  The program is functional albiet with a bug or a few.  Feel free to try it out and report issues!
 ## Prereqs
 >beautifulsoup4==4.7.1
 
