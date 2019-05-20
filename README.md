@@ -3,21 +3,21 @@
 ## Prereqs
 >beautifulsoup4==4.7.1
 
-numpy==1.16.2
+>numpy==1.16.2
 
-pandas==0.24.2
+>pandas==0.24.2
 
-python-dateutil==2.8.0
+>python-dateutil==2.8.0
 
-pytz==2019.1
+>pytz==2019.1
 
-selenium==3.141.0
+>selenium==3.141.0
 
-six==1.12.0
+>six==1.12.0
 
-soupsieve==1.9.1
+>soupsieve==1.9.1
 
-urllib3==1.24.1
+>urllib3==1.24.1
 
 ## Webdriver
 I am currently using:
