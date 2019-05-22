@@ -1,11 +1,13 @@
-# Use BS4 to parse html for the page and extract data for csv
-# Need to delete additional column headers when appending to already existing csv
-# Fix issue where appending additional jobs, there is an extra row after every appended job.
-# Open each link and extract information pertaining to the job for the csv
-# Develop function to check if file exists before writing the data to it, if exists
-# then append the data that is not already in the csv.
-# Allow script to go through the pages if they exist to scrape further than the first page
-# Create GUI and EXE for script
+# Use BS4 to parse html for the page and extract data for csv ( Running into issues where soup.select, [ ]
+# soup.find, soup.findAll will only write to the first cell in the column.  Then no other descriptions are found for the rest of the rows in that same column.
+# I can bring up the soup and confirm that the description can be pulled up on its own..
+# Need to delete additional column headers when appending to already existing csv [X]
+# Fix issue where appending additional jobs, there is an extra row after every appended job. [ ]
+# Open each link and extract information pertaining to the job for the csv [ ]
+# Develop function to check if file exists before writing the data to it, if exists [x]
+# then append the data that is not already in the csv. [x]
+# Allow script to go through the pages if they exist to scrape further than the first page [ ]
+# Create GUI and EXE for script [ ]
 
 import time
 import pandas as pd
@@ -22,6 +24,7 @@ from selenium.webdriver.common.action_chains import ActionChains
 from bs4 import BeautifulSoup
 import re
 import os, sys
+import numpy as np
 
 
 class Indeed:
@@ -117,7 +120,8 @@ class Indeed:
             return ""
         else:
             return compiled.group()
-
+    def check_tags(self):
+        pass
     def scrape_page(self):
         WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class,'jobsearch-SerpJobCard unifiedRow row result clickcard')]")))
         try:
@@ -145,35 +149,62 @@ class Indeed:
                 self.links.append(job_link)
                 self.scraped_data.append(
                     {"Job": job_name, "Job Link": job_link, "Company": company,
-                     "Location": location, "Desc": "", "Salary": ""}
+                     "Location": location, "Desc": None, "Salary": None, 'Applied': None, 'Interview': None}
                 )
             for source in self.links:
                 self.driver.get(source)
-                self.scraped_data[0]['Job Link'] = self.driver.find_element_by_xpath("//div[contains(@class, 'icl-u-xs-hide icl-u-lg-block icl-u-lg-textCenter')]").find_element_by_tag_name('a').get_attribute('href')
-                self.scraped_data[0]['Desc'] = self.driver.find_element_by_xpath("//div[contains(@class, 'jobsearch-jobDescriptionText')]").text
-                self.scraped_data[0]['Salary'] = self.reg_default(r'[$]\d[\d|\W]{1,3}(\d*)', self.driver.find_element_by_xpath("//div[contains(@class, 'jobsearch-jobDescriptionText')]").text)
+                self.scraped_data[0]['Job Link'] = self.driver.find_element_by_xpath(
+                    "//div[contains(@class, 'icl-u-xs-hide icl-u-lg-block icl-u-lg-textCenter')]").find_element_by_tag_name(
+                    'a').get_attribute('href')
+
+                '''self.scraped_data[0]['Salary'] = self.reg_default(
+                    r'[$]\d[\d|\W]{1,3}(\d*)', self.driver.find_element_by_xpath(
+                        "//div[contains(@class, 'jobsearch-jobDescriptionText')]").text
+                )
+                '''
                 self.sources.append(self.driver.page_source)
             for source in self.sources:
                 self.soups.append(BeautifulSoup(source, 'html.parser'))
             for soup in self.soups:
-                print(soup.title, soup.find_all('a'), soup.title.a, soup.body.string)
+                try:
+                    #for item in soup.findAll('div', {'class': "jobsearch-jobDescriptionText"}):
+                        #desc = item.text
+                    self.scraped_data[0]['Desc'] = soup.select('#jobDescriptionText')
+                    #self.scraped_data[0]['Salary'] = soup.find('div', {"class": 'icl-JobResult-salary'}).text
+                    #self.scraped_data[0]['Company'] = soup.find('span', {'class': 'icl-JobResult-companyName'}).text
+                    #self.scraped_data[0]['Location'] = soup.find('span', {'class': 'icl-JobResult-jobLocation'}).text
+                    #self.scraped_data[0]['Job'] = soup.find('a', {'class', 'icl-JobResult-jobLink'}).text
+                except AttributeError:
+                    pass
 
 
-        #else:
-         ##  'The element you are looking for is not available.  Pre-Check is returning false. Please confirm your element is visible.')
-        #print(self.driver.current_url)
-        #print(BeautifulSoup(self.driver.page_source, 'html.parser').prettify())
+
 
     def save_jobs(self):
-        df = pd.DataFrame(self.scraped_data)
+        df = pd.DataFrame(self.scraped_data, columns=['Company', 'Job', 'Desc', 'Job Link', 'Location', 'Salary', 'Applied', 'Interview'])
         if self.filename in os.listdir(os.path.dirname(sys.argv[0])):
-            with open(self.filename, 'a') as f:
-                df.to_csv(f)
+            with open(self.filename, 'a', encoding='utf-8') as f:
+                df.to_csv(f, encoding='utf-8')
+                f.close()
             print("Scraped jobs appended to " + self.filename + '.')
         else:
             print("Scraped jobs saved to generated file " + self.filename + '.')
-            df.to_csv(self.filename)
+            df.to_csv(self.filename, encoding='utf-8')
             self.driver.quit()
+
+    def clean_file(self):
+        col_names = ['Company', 'Job', 'Desc', 'Job Link', 'Location', 'Salary', 'Applied', 'Interview']
+        df1 = pd.read_csv(os.path.abspath(self.filename), names=col_names, encoding='utf-8')
+        df2 = pd.DataFrame(df1)
+        df2.reindex()
+        #df = pd.DataFrame(np.sort(df1[['Company', 'Job', 'Desc', 'Job Link', 'Location', 'Salary']].values, 1)).drop_duplicates()
+
+        df2.drop_duplicates(subset=['Company', 'Job'], keep='first', inplace=True)
+        with open(self.filename, 'w', encoding='utf-8') as f:
+            df2.to_csv(f, encoding='utf-8')
+            f.close()
+        print(self.filename + ' ' + 'has now been cleaned of duplicates.')
+
 
     def close_prog(self):
 
@@ -193,6 +224,8 @@ class Indeed:
             self.search_job()
             self.scrape_page()
         self.save_jobs()
+        self.clean_file()
+        self.close_prog()
 
 
 if __name__ == "__main__":
