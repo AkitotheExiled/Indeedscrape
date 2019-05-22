@@ -30,5 +30,5 @@ I am currently using:
 - [ ] Fix issue where elementnotinteracted trace can appear(possibly due to clicking on an nonexistent body of the page)
 - [ ] Develop a function to scrape more than one page and allow users to customize the amount of pages
 - [ ] Figure out a solution to where if the search parameters results in no jobs appearing
-- [ ] Create a function to handle job duplicates before appending results to the file
+- [X] Create a function to handle job duplicates before appending results to the file
 - [ ] Eventually add functionality to sort the jobs by "type" using Python
