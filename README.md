@@ -24,8 +24,8 @@ I am currently using:
 > Firefox Driver
 
 ## TODO
-- [ ] Implement BS4 to allow extraction of job: description, salary, links
-- [ ] Fix issue where column headers appear at the bottom of the file if you append jobs to an already create file
+- [X] Implement BS4 to allow extraction of job: description, salary, links
+- [X] Fix issue where column headers appear at the bottom of the file if you append jobs to an already create file
 - [ ] Fix issue where appending jobs to a file introduces an additional row between each job
 - [ ] Fix issue where elementnotinteracted trace can appear(possibly due to clicking on an nonexistent body of the page)
 - [ ] Develop a function to scrape more than one page and allow users to customize the amount of pages

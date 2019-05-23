@@ -1,13 +1,15 @@
-# Use BS4 to parse html for the page and extract data for csv ( Running into issues where soup.select, [ ]
+# Use BS4 to parse html for the page and extract data for csv ( Running into issues where soup.select, [X]
 # soup.find, soup.findAll will only write to the first cell in the column.  Then no other descriptions are found for the rest of the rows in that same column.
-# I can bring up the soup and confirm that the description can be pulled up on its own..
+# The [{}] was a list of dictionaries inside it.  So list_d[0]['key] only overwrites the first listing..
 # Need to delete additional column headers when appending to already existing csv [X]
 # Fix issue where appending additional jobs, there is an extra row after every appended job. [ ]
-# Open each link and extract information pertaining to the job for the csv [ ]
-# Develop function to check if file exists before writing the data to it, if exists [x]
-# then append the data that is not already in the csv. [x]
+# Open each link and extract information pertaining to the job for the csv [X]
+# Develop function to check if file exists before writing the data to it, if exists [X]
+# then append the data that is not already in the csv. [X]
 # Allow script to go through the pages if they exist to scrape further than the first page [ ]
 # Create GUI and EXE for script [ ]
+# selenium.common.exceptions.ElementNotInteractableException: Message: Element <div id="popover-x" class="popover-x ita-popover-x"> could not be scrolled into view
+
 
 import time
 import pandas as pd
@@ -16,11 +18,12 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import NoSuchElementException, UnexpectedAlertPresentException, StaleElementReferenceException
+from selenium.common.exceptions import NoSuchElementException, UnexpectedAlertPresentException, StaleElementReferenceException, ElementClickInterceptedException
 from selenium.webdriver.support.ui import Select
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.common.alert import Alert
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.firefox.options import Options
 from bs4 import BeautifulSoup
 import re
 import os, sys
@@ -31,7 +34,9 @@ class Indeed:
 
     def __init__(self):
 
-        self.driver = webdriver.Firefox()
+        options = Options()
+        options.headless = True
+        self.driver = webdriver.Firefox(options=options)
         self.job = None
         print('Type the location you want to search for( e.g. San Mateo, CA)')
         self.location = input()
@@ -39,11 +44,12 @@ class Indeed:
         self.url = 'https://www.indeed.com'
         self.wait_time = 10
         self.wait = WebDriverWait(self.driver, self.wait_time)
-        self.soup = None
         self.filename = 'indeedJobs.csv'
         self.links = []
         self.sources = []
         self.soups = []
+        self.nxt = None
+
     def element_detect(self, element1, element2):
         ''' This method is to be used when you know the name of an input and its ID changes on a different page but that input function remains the same.'''
         try:
@@ -120,8 +126,7 @@ class Indeed:
             return ""
         else:
             return compiled.group()
-    def check_tags(self):
-        pass
+
     def scrape_page(self):
         WebDriverWait(self.driver, 30).until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class,'jobsearch-SerpJobCard unifiedRow row result clickcard')]")))
         try:
@@ -149,33 +154,65 @@ class Indeed:
                 self.links.append(job_link)
                 self.scraped_data.append(
                     {"Job": job_name, "Job Link": job_link, "Company": company,
-                     "Location": location, "Desc": None, "Salary": None, 'Applied': None, 'Interview': None}
+                     "Location": location, "Desc": '', "Salary": None, 'Applied': None, 'Interview': None}
                 )
+                print('Scraping jobs...')
             for source in self.links:
-                self.driver.get(source)
-                self.scraped_data[0]['Job Link'] = self.driver.find_element_by_xpath(
-                    "//div[contains(@class, 'icl-u-xs-hide icl-u-lg-block icl-u-lg-textCenter')]").find_element_by_tag_name(
-                    'a').get_attribute('href')
-
-                '''self.scraped_data[0]['Salary'] = self.reg_default(
-                    r'[$]\d[\d|\W]{1,3}(\d*)', self.driver.find_element_by_xpath(
-                        "//div[contains(@class, 'jobsearch-jobDescriptionText')]").text
-                )
                 '''
+                #if mn >= len(self.links):
+                #mn = len(self.links)
+                '''
+                self.driver.get(source)
                 self.sources.append(self.driver.page_source)
-            for source in self.sources:
-                self.soups.append(BeautifulSoup(source, 'html.parser'))
-            for soup in self.soups:
-                try:
-                    #for item in soup.findAll('div', {'class': "jobsearch-jobDescriptionText"}):
-                        #desc = item.text
-                    self.scraped_data[0]['Desc'] = soup.select('#jobDescriptionText')
-                    #self.scraped_data[0]['Salary'] = soup.find('div', {"class": 'icl-JobResult-salary'}).text
-                    #self.scraped_data[0]['Company'] = soup.find('span', {'class': 'icl-JobResult-companyName'}).text
-                    #self.scraped_data[0]['Location'] = soup.find('span', {'class': 'icl-JobResult-jobLocation'}).text
-                    #self.scraped_data[0]['Job'] = soup.find('a', {'class', 'icl-JobResult-jobLink'}).text
-                except AttributeError:
-                    pass
+                print('1')
+                '''
+                #try:
+                    #self.scraped_data[mn]['Job Link'] = self.driver.find_element_by_xpath("//div[contains(@class, 'icl-u-xs-hide icl-u-lg-block icl-u-lg-textCenter')]").find_element_by_tag_name('a').get_attribute('href')
+                #except NoSuchElementException:
+                    #raise
+                #else:
+                    #self.sources.append(self.driver.page_source)
+                    #mn += 1
+                '''
+
+
+    def next_pg(self):
+        try:
+            self.driver.find_element_by_css_selector(".np").click()
+        except NoSuchElementException:
+            self.nxt = False
+        except ElementClickInterceptedException:
+            try:
+                self.driver.implicitly_wait(5)
+                self.driver.find_element_by_xpath("//div[contains(@class, 'popover-x ita-popover-x')]").click()
+            except NoSuchElementException:
+                self.nxt = False
+                self.next_pg()
+        else:
+            print('next_pg function ran...')
+            #self.nxt = True
+
+
+    def soup_org(self):
+        print('Soup org running...')
+        nm = 0
+        for item in self.sources:
+            self.soups.append(BeautifulSoup(item, 'html.parser'))
+            print('2')
+        for soup in self.soups:
+            if nm >= len(self.links):
+                nm = len(self.links)
+            try:
+                self.scraped_data[nm]['Desc'] = soup.find('div', {'class': "jobsearch-jobDescriptionText"}).text
+                self.scraped_data[nm]['Salary'] = soup.find('div', {"class": 'icl-JobResult-salary'}).text
+                #self.scraped_data[nm]['Job Link'] = soup.find('a', {'class': 'icl-Button icl-Button--primary icl-Button--md icl-Button--block'}, href=True)
+                # self.scraped_data[nm]['Company'] = soup.find('span', {'class': 'icl-JobResult-companyName'}).text
+                # self.scraped_data[nm]['Location'] = soup.find('span', {'class': 'icl-JobResult-jobLocation'}).text
+                # self.scraped_data[nm]['Job'] = soup.find('a', {'class', 'icl-JobResult-jobLink'}).text
+            except AttributeError:
+                pass
+            nm += 1
+            print(nm, len(self.scraped_data))
 
 
 
@@ -223,9 +260,23 @@ class Indeed:
                 break
             self.search_job()
             self.scrape_page()
+            while True:
+                print('confirming we are scraping other pages..')
+                print(self.nxt)
+                self.next_pg()
+                print(self.nxt)
+                if not self.nxt:
+                    print('We just broke the second loop...OOPS')
+                    break
+                if self.nxt:
+                    print('scraping other pages...')
+                    self.scrape_page()
+                    continue
+        self.close_prog()
+        self.soup_org()
         self.save_jobs()
         self.clean_file()
-        self.close_prog()
+
 
 
 if __name__ == "__main__":
